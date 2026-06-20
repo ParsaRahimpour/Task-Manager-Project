@@ -39,3 +39,19 @@ async def root():
         except Exception as e:
             logger.exception(e)
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+
+@app.get("/tasks/{completed}")
+async def get_completed_task(completed : str):
+    try:
+        result = []
+        for task in tasks:
+            if task.completed == completed:
+                result.append(task)
+        if result == None:
+            return {"error" : "Not found Any task that you want"}
+        return {"success" , result}
+    except Exception as e:
+            logger.exception(e)
+    raise HTTPException(status_code=500, detail="Internal server error")
