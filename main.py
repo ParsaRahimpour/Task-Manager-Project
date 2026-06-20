@@ -1,0 +1,32 @@
+from fastapi import FastAPI , HTTPException
+import logging
+# Create FastAPI app instance
+logger = logging.getLogger(__name__)
+
+app = FastAPI()
+
+#classes
+class User:
+    id : int
+    name : str
+    email : str
+    
+class Task:
+    id : int
+    title : str
+    description : str
+    completed : bool
+    user_id : int
+
+users = {}
+tasks = {}
+
+
+    
+@app.get("/health")
+async def get_health():
+    try:
+        return {"status" : "ok" }
+    except Exception as e:
+            logger.exception(e)
+    raise HTTPException(status_code=500, detail="Internal server error")
