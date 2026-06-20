@@ -30,3 +30,12 @@ async def get_health():
     except Exception as e:
             logger.exception(e)
     raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@app.get("/")
+async def root():
+        try:
+            return {"message": "Task Management API"}
+        except Exception as e:
+            logger.exception(e)
+        raise HTTPException(status_code=500, detail="Internal server error")
