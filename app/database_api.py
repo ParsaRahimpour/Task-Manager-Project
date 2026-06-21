@@ -1,25 +1,11 @@
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from db import SessionLocal
 
 
 # -----------------------------
 # Helpers
 # -----------------------------
-
-def row_to_dict(row, columns):
-    if row is None:
-        return None
-
-    return dict(zip(columns, row))
-
-
-def not_found_response(entity_name):
-    return {
-        "success": False,
-        "error_type": "NotFound",
-        "error": f"{entity_name} not found"
-    }
-
 
 USER_COLUMNS = ["id", "name", "email"]
 
@@ -30,6 +16,27 @@ TASK_COLUMNS = [
     "completed",
     "user_id"
 ]
+
+
+def row_to_dict(row, columns):
+    if row is None:
+        return None
+
+    return dict(zip(columns, row))
+
+
+def success_response(data):
+    return {
+        "code": 200,
+        "data": data
+    }
+
+
+def error_response(code, message):
+    return {
+        "code": code,
+        "message": message
+    }
 
 
 # -----------------------------
@@ -56,19 +63,25 @@ def create_user(name, email):
 
         db.commit()
 
-        return {
-            "success": True,
-            "data": row_to_dict(row, USER_COLUMNS)
-        }
+        return success_response(
+            row_to_dict(row, USER_COLUMNS)
+        )
 
-    except Exception as e:
+    except IntegrityError:
         db.rollback()
 
-        return {
-            "success": False,
-            "error_type": type(e).__name__,
-            "error": str(e)
-        }
+        return error_response(
+            409,
+            "Email already exists"
+        )
+
+    except Exception:
+        db.rollback()
+
+        return error_response(
+            500,
+            "Database error"
+        )
 
     finally:
         db.close()
@@ -82,20 +95,18 @@ def get_all_users():
             text("SELECT * FROM users")
         )
 
-        return {
-            "success": True,
-            "data": [
-                row_to_dict(row, USER_COLUMNS)
-                for row in result.fetchall()
-            ]
-        }
+        users = [
+            row_to_dict(row, USER_COLUMNS)
+            for row in result.fetchall()
+        ]
 
-    except Exception as e:
-        return {
-            "success": False,
-            "error_type": type(e).__name__,
-            "error": str(e)
-        }
+        return success_response(users)
+
+    except Exception:
+        return error_response(
+            500,
+            "Database error"
+        )
 
     finally:
         db.close()
@@ -119,19 +130,20 @@ def get_user_by_id(user_id):
         row = result.fetchone()
 
         if row is None:
-            return not_found_response("User")
+            return error_response(
+                404,
+                "User not found"
+            )
 
-        return {
-            "success": True,
-            "data": row_to_dict(row, USER_COLUMNS)
-        }
+        return success_response(
+            row_to_dict(row, USER_COLUMNS)
+        )
 
-    except Exception as e:
-        return {
-            "success": False,
-            "error_type": type(e).__name__,
-            "error": str(e)
-        }
+    except Exception:
+        return error_response(
+            500,
+            "Database error"
+        )
 
     finally:
         db.close()
@@ -144,7 +156,8 @@ def update_user(user_id, name, email):
         result = db.execute(
             text("""
                 UPDATE users
-                SET name = :name,
+                SET
+                    name = :name,
                     email = :email
                 WHERE id = :user_id
                 RETURNING *
@@ -160,23 +173,33 @@ def update_user(user_id, name, email):
 
         if row is None:
             db.rollback()
-            return not_found_response("User")
+
+            return error_response(
+                404,
+                "User not found"
+            )
 
         db.commit()
 
-        return {
-            "success": True,
-            "data": row_to_dict(row, USER_COLUMNS)
-        }
+        return success_response(
+            row_to_dict(row, USER_COLUMNS)
+        )
 
-    except Exception as e:
+    except IntegrityError:
         db.rollback()
 
-        return {
-            "success": False,
-            "error_type": type(e).__name__,
-            "error": str(e)
-        }
+        return error_response(
+            409,
+            "Email already exists"
+        )
+
+    except Exception:
+        db.rollback()
+
+        return error_response(
+            500,
+            "Database error"
+        )
 
     finally:
         db.close()
@@ -201,23 +224,25 @@ def delete_user(user_id):
 
         if row is None:
             db.rollback()
-            return not_found_response("User")
+
+            return error_response(
+                404,
+                "User not found"
+            )
 
         db.commit()
 
-        return {
-            "success": True,
-            "data": row_to_dict(row, USER_COLUMNS)
-        }
+        return success_response(
+            row_to_dict(row, USER_COLUMNS)
+        )
 
-    except Exception as e:
+    except Exception:
         db.rollback()
 
-        return {
-            "success": False,
-            "error_type": type(e).__name__,
-            "error": str(e)
-        }
+        return error_response(
+            500,
+            "Database error"
+        )
 
     finally:
         db.close()
@@ -258,19 +283,25 @@ def create_task(title, description, user_id):
 
         db.commit()
 
-        return {
-            "success": True,
-            "data": row_to_dict(row, TASK_COLUMNS)
-        }
+        return success_response(
+            row_to_dict(row, TASK_COLUMNS)
+        )
 
-    except Exception as e:
+    except IntegrityError:
         db.rollback()
 
-        return {
-            "success": False,
-            "error_type": type(e).__name__,
-            "error": str(e)
-        }
+        return error_response(
+            400,
+            "Invalid user id"
+        )
+
+    except Exception:
+        db.rollback()
+
+        return error_response(
+            500,
+            "Database error"
+        )
 
     finally:
         db.close()
@@ -284,20 +315,18 @@ def get_all_tasks():
             text("SELECT * FROM tasks")
         )
 
-        return {
-            "success": True,
-            "data": [
-                row_to_dict(row, TASK_COLUMNS)
-                for row in result.fetchall()
-            ]
-        }
+        tasks = [
+            row_to_dict(row, TASK_COLUMNS)
+            for row in result.fetchall()
+        ]
 
-    except Exception as e:
-        return {
-            "success": False,
-            "error_type": type(e).__name__,
-            "error": str(e)
-        }
+        return success_response(tasks)
+
+    except Exception:
+        return error_response(
+            500,
+            "Database error"
+        )
 
     finally:
         db.close()
@@ -321,19 +350,20 @@ def get_task_by_id(task_id):
         row = result.fetchone()
 
         if row is None:
-            return not_found_response("Task")
+            return error_response(
+                404,
+                "Task not found"
+            )
 
-        return {
-            "success": True,
-            "data": row_to_dict(row, TASK_COLUMNS)
-        }
+        return success_response(
+            row_to_dict(row, TASK_COLUMNS)
+        )
 
-    except Exception as e:
-        return {
-            "success": False,
-            "error_type": type(e).__name__,
-            "error": str(e)
-        }
+    except Exception:
+        return error_response(
+            500,
+            "Database error"
+        )
 
     finally:
         db.close()
@@ -352,7 +382,8 @@ def update_task(
         result = db.execute(
             text("""
                 UPDATE tasks
-                SET title = :title,
+                SET
+                    title = :title,
                     description = :description,
                     completed = :completed,
                     user_id = :user_id
@@ -372,23 +403,33 @@ def update_task(
 
         if row is None:
             db.rollback()
-            return not_found_response("Task")
+
+            return error_response(
+                404,
+                "Task not found"
+            )
 
         db.commit()
 
-        return {
-            "success": True,
-            "data": row_to_dict(row, TASK_COLUMNS)
-        }
+        return success_response(
+            row_to_dict(row, TASK_COLUMNS)
+        )
 
-    except Exception as e:
+    except IntegrityError:
         db.rollback()
 
-        return {
-            "success": False,
-            "error_type": type(e).__name__,
-            "error": str(e)
-        }
+        return error_response(
+            400,
+            "Invalid user id"
+        )
+
+    except Exception:
+        db.rollback()
+
+        return error_response(
+            500,
+            "Database error"
+        )
 
     finally:
         db.close()
@@ -413,23 +454,25 @@ def delete_task(task_id):
 
         if row is None:
             db.rollback()
-            return not_found_response("Task")
+
+            return error_response(
+                404,
+                "Task not found"
+            )
 
         db.commit()
 
-        return {
-            "success": True,
-            "data": row_to_dict(row, TASK_COLUMNS)
-        }
+        return success_response(
+            row_to_dict(row, TASK_COLUMNS)
+        )
 
-    except Exception as e:
+    except Exception:
         db.rollback()
 
-        return {
-            "success": False,
-            "error_type": type(e).__name__,
-            "error": str(e)
-        }
+        return error_response(
+            500,
+            "Database error"
+        )
 
     finally:
         db.close()
