@@ -1,19 +1,12 @@
 services:
-  api:
-    build: .
-    ports:
-      - "8000:8000"
-
-    depends_on:
-      - db
-
   db:
     image: postgres:17
+    restart: unless-stopped
 
     environment:
       POSTGRES_DB: team_db
       POSTGRES_USER: team_user
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: team_password
 
     ports:
       - "5432:5432"
@@ -23,3 +16,4 @@ services:
 
 volumes:
   postgres_data:
+    driver: local
