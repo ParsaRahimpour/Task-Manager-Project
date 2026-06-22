@@ -71,7 +71,6 @@ def login(cred: loginRequest):
     raise HTTPException(401, 'invalid credentials')
 
 
-
 @app.get('/logout')
 def logout():
 
@@ -85,6 +84,7 @@ def logout():
     return {
         'message': 'successful logout'
     }
+
 
         
 @app.get('/tasks/')
@@ -102,4 +102,27 @@ def getTasks(title: str | None = None):
     
     return {
         'message': chosenTasks
+    }
+
+
+@app.delete('/tasks/{taskID}')
+def deleteTask(taskID: int):
+
+    if userAuth == -1:
+        raise HTTPException(401, 'not authorized')
+    
+    ind = -1
+    for index, task in enumerate(tasks):
+        if task['taskID'] == taskID:
+
+            if task['userID'] != userAuth:
+                raise HTTPException(403, 'Forbidden: not your task')
+            
+            ind = index
+
+    if ind == -1:
+        raise HTTPException(404, f'no task with id:{taskID}')
+    
+    return {
+        'message': tasks.pop(ind)
     }
