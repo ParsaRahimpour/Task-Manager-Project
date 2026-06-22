@@ -85,3 +85,21 @@ def logout():
     return {
         'message': 'successful logout'
     }
+
+        
+@app.get('/tasks/')
+def getTasks(title: str | None = None):
+    
+    if userAuth == -1:
+        raise HTTPException(401, 'not authorized')
+    
+    chosenTasks = []
+
+    for task in tasks:
+        if task['userID'] == userAuth:
+            if title == None or title.lower() in task['title'].lower():
+                chosenTasks.append(task)
+    
+    return {
+        'message': chosenTasks
+    }
