@@ -1,31 +1,44 @@
+from fastapi import FastAPI, HTTPException
+from database_api import get_all_users as db_get_all_users, delete_user as db_delete_user
+
+app = FastAPI()
+
+# Global auth variable (will be merged)
+userAuth = -1
+
 @app.get('/users/')
 def get_all_users():
+    global userAuth
     
     if userAuth == -1:
-        raise HTTPException(401, 'not authorized')
+        raise HTTPException(status_code=401, detail='Not authorized')
     
-    users = get_all_users()
+    result = db_get_all_users()
     
-    if users["code"] != 200:
-        raise HTTPException(users["code"], users["message"])
+    if result["code"] != 200:
+        raise HTTPException(status_code=result["code"], detail=result["message"])
     
     return {
-        'users': users["data"]
+        'users': result["data"] if result["data"] else [],
+        'count': len(result["data"]) if result["data"] else 0
     }
-
 
 @app.delete('/users/{user_id}')
 def delete_user(user_id: int):
+    global userAuth
     
     if userAuth == -1:
-        raise HTTPException(401, 'not authorized')
+        raise HTTPException(status_code=401, detail='Not authorized')
     
-    result = delete_user(user_id)
+    if user_id < 0:
+        raise HTTPException(status_code=400, detail='Invalid user ID')
+    
+    result = db_delete_user(user_id)
     
     if result["code"] != 200:
-        raise HTTPException(result["code"], result["message"])
+        raise HTTPException(status_code=result["code"], detail=result["message"])
     
     return {
-        'message': 'user deleted successfully',
+        'message': 'User deleted successfully',
         'user': result["data"]
     }
