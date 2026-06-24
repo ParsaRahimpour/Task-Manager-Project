@@ -367,6 +367,55 @@ def get_task_by_id(task_id):
 
     finally:
         db.close()
+        
+        
+def get_tasks_by_user_id(user_id):
+    db = SessionLocal()
+
+    try:
+        user = db.execute(
+            text("""
+                SELECT id
+                FROM users
+                WHERE id = :user_id
+            """),
+            {
+                "user_id": user_id
+            }
+        ).fetchone()
+
+        if user is None:
+            return error_response(
+                404,
+                "User not found"
+            )
+
+        result = db.execute(
+            text("""
+                SELECT *
+                FROM tasks
+                WHERE user_id = :user_id
+            """),
+            {
+                "user_id": user_id
+            }
+        )
+
+        tasks = [
+            row_to_dict(row, TASK_COLUMNS)
+            for row in result.fetchall()
+        ]
+
+        return success_response(tasks)
+
+    except Exception:
+        return error_response(
+            500,
+            "Database error"
+        )
+
+    finally:
+        db.close()        
 
 
 def update_task(
@@ -476,3 +525,112 @@ def delete_task(task_id):
 
     finally:
         db.close()
+        
+        
+def get_completed_tasks_by_user(user_id):
+    db = SessionLocal()
+
+    try:
+        # Check if user exists
+        user = db.execute(
+            text("""
+                SELECT id
+                FROM users
+                WHERE id = :user_id
+            """),
+            {"user_id": user_id}
+        ).fetchone()
+
+        if user is None:
+            return error_response(
+                404,
+                "User not found"
+            )
+
+        result = db.execute(
+            text("""
+                SELECT *
+                FROM tasks
+                WHERE user_id = :user_id
+                  AND completed = true
+            """),
+            {"user_id": user_id}
+        )
+
+        tasks = [
+            row_to_dict(row, TASK_COLUMNS)
+            for row in result.fetchall()
+        ]
+
+        if not tasks:
+            return error_response(
+                404,
+                "User has no completed tasks"
+            )
+
+        return success_response(tasks)
+
+    except Exception:
+        return error_response(
+            500,
+            "Database error"
+        )
+
+    finally:
+        db.close()
+        
+        
+def search_tasks_by_title(user_id, title):
+    db = SessionLocal()
+
+    try:
+        # Check if user exists
+        user = db.execute(
+            text("""
+                SELECT id
+                FROM users
+                WHERE id = :user_id
+            """),
+            {"user_id": user_id}
+        ).fetchone()
+
+        if user is None:
+            return error_response(
+                404,
+                "User not found"
+            )
+
+        result = db.execute(
+            text("""
+                SELECT *
+                FROM tasks
+                WHERE user_id = :user_id
+                  AND title ILIKE :title
+            """),
+            {
+                "user_id": user_id,
+                "title": f"%{title}%"
+            }
+        )
+
+        tasks = [
+            row_to_dict(row, TASK_COLUMNS)
+            for row in result.fetchall()
+        ]
+
+        if not tasks:
+            return error_response(
+                404,
+                f'No tasks found with title containing "{title}"'
+            )
+
+        return success_response(tasks)
+
+    except Exception:
+        return error_response(
+            500,
+            "Database error"
+        )
+
+    finally:
+        db.close()                
