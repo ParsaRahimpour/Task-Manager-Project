@@ -19,8 +19,8 @@ def get_all_users():
         raise HTTPException(status_code=result["code"], detail=result["message"])
     
     return {
-        'users': result["data"] if result["data"] else [],
-        'count': len(result["data"]) if result["data"] else 0
+        'users': result["message"] if result["message"] else [],
+        'count': len(result["message"]) if result["message"] else 0
     }
 
 @app.delete('/users/{user_id}')
@@ -40,5 +40,5 @@ def delete_user(user_id: int):
     
     return {
         'message': 'User deleted successfully',
-        'user': result["data"]
+        'user': result["message"]
     }
