@@ -2,53 +2,31 @@
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from database_api import get_user_by_email, get_tasks_by_user_id, search_tasks_by_title, delete_task, get_task_by_id
 
 app = FastAPI()
 
 class loginRequest(BaseModel):
-    userID: int
+    userEmail: int
     password: str
 
 
+class User(BaseModel):
+    userID: int
+    name: str
+    email: str
+    password: str
+
+
+class Task(BaseModel):
+    taskID: int
+    title: str
+    description: str
+    completed: bool
+    userID: int
+
+
 userAuth = -1
-
-tasks = [
-    {
-        'title': 'docker',
-        'userID': 1,
-        'taskID': 0
-    },
-    {
-        'title': 'git',
-        'userID': 0,
-        'taskID': 1
-    },
-    {
-        'title': 'docker-git',
-        'userID': 0,
-        'taskID': 2
-    },
-    {
-        'title': 'ubuntu',
-        'userID': 2,
-        'taskID': 3
-    }
-]
-
-users = [
-    {
-        'userID': 0,
-        'password': 'ali'
-    },
-    {
-        'userID': 1,
-        'password': 'gholi'
-    },
-    {
-        'userID': 2,
-        'password': 'maria'
-    },
-]
 
 
 @app.post('/login')
@@ -59,16 +37,28 @@ def login(cred: loginRequest):
     if userAuth != -1:
         raise HTTPException(400, 'you are already loged in')
     
-    for user in users:
-        if user['userID'] == cred.userID and user['password'] == cred.password:
+    try:    
+        res = get_user_by_email(cred.userEmail)
         
-            userAuth = user['userID']
+        if res['code'] != 200:
+            raise HTTPException(res['code'], res['message'])
+        
+        user = User(**res['message'])
 
-            return {
-                'message': 'successfully loged in'
-            }
+    except Exception as e:
+        raise e
+
+
+    if user.password == cred.password:
+        
+        userAuth = user.userID
+
+        return {
+            'message': 'successfully loged in'
+        }
         
     raise HTTPException(401, 'invalid credentials')
+
 
 
 @app.get('/logout')
@@ -93,16 +83,34 @@ def getTasks(title: str | None = None):
     if userAuth == -1:
         raise HTTPException(401, 'not authorized')
     
+
     chosenTasks = []
 
-    for task in tasks:
-        if task['userID'] == userAuth:
-            if title == None or title.lower() in task['title'].lower():
-                chosenTasks.append(task)
-    
+    try:
+        if title == None:
+            res = get_tasks_by_user_id(userAuth)
+
+            if res['code'] != 200:
+                raise HTTPException(res['code'], res['message'])
+            
+            chosenTasks = res['message']
+
+        else:
+            res = search_tasks_by_title(userAuth, title)
+
+            if res['code'] != 200:
+                raise HTTPException(res['code'], res['message'])
+            
+            chosenTasks = res['message']
+
+    except Exception as e:
+        raise e
+
+
     return {
         'message': chosenTasks
     }
+
 
 
 @app.delete('/tasks/{taskID}')
@@ -111,18 +119,35 @@ def deleteTask(taskID: int):
     if userAuth == -1:
         raise HTTPException(401, 'not authorized')
     
-    ind = -1
-    for index, task in enumerate(tasks):
-        if task['taskID'] == taskID:
 
-            if task['userID'] != userAuth:
-                raise HTTPException(403, 'Forbidden: not your task')
-            
-            ind = index
+    try:
+        res = get_task_by_id(taskID)
+        
+        if res['code'] != 200:
+            raise HTTPException(res['code'], res['message'])
+        
+        task = Task(**res['message'])
+    
+    except Exception as e:
+        raise e
 
-    if ind == -1:
-        raise HTTPException(404, f'no task with id:{taskID}')
+
+
+    if task.userID != userAuth:
+        raise HTTPException(403, 'Forbidden: not your task')
+
+    try:
+        res = delete_task(taskID)
+
+        if res['code'] != 200:
+            raise HTTPException(res['code'], res['message'])
+        
+        deletedTask = res['message']
+
+    except Exception as e:
+        raise e
+    
     
     return {
-        'message': tasks.pop(ind)
+        'message': deletedTask
     }
