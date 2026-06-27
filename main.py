@@ -1,6 +1,6 @@
 from fastapi import FastAPI , HTTPException
 import logging
-from database_api import get_all_tasks as db_get_all_tasks
+from database_api import get_completed_tasks_by_user as db_get_all_tasks
 # Create FastAPI app instance
 logger = logging.getLogger(__name__)
 
