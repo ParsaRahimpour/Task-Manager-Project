@@ -1,6 +1,6 @@
 from fastapi import FastAPI , HTTPException
 import logging
-from database_api import get_completed_tasks_by_user as db_get_completed_tasks_by_user
+from database_api import get_all_tasks as db_get_all_tasks
 # Create FastAPI app instance
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ async def get_completed_task(id : int):
     try:
         if userAuth == -1:
             raise HTTPException(401, 'not authorized')
-        result = get_all_tasks(id)
+        result = db_get_all_tasks(id)
         if result["code"] != 200:
             raise HTTPException(status_code=result["code"], detail=result["message"])
 
