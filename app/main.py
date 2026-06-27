@@ -7,23 +7,23 @@ from database_api import get_user_by_email, get_tasks_by_user_id, search_tasks_b
 app = FastAPI()
 
 class loginRequest(BaseModel):
-    userEmail: int
+    userEmail: str
     password: str
 
 
 class User(BaseModel):
-    userID: int
+    user_id: int
     name: str
     email: str
     password: str
 
 
 class Task(BaseModel):
-    taskID: int
+    task_id: int
     title: str
     description: str
     completed: bool
-    userID: int
+    user_id: int
 
 
 userAuth = -1
@@ -51,7 +51,7 @@ def login(cred: loginRequest):
 
     if user.password == cred.password:
         
-        userAuth = user.userID
+        userAuth = user.user_id
 
         return {
             'message': 'successfully loged in'
@@ -113,15 +113,15 @@ def getTasks(title: str | None = None):
 
 
 
-@app.delete('/tasks/{taskID}')
-def deleteTask(taskID: int):
+@app.delete('/tasks/{task_id}')
+def deleteTask(task_id: int):
 
     if userAuth == -1:
         raise HTTPException(401, 'not authorized')
     
 
     try:
-        res = get_task_by_id(taskID)
+        res = get_task_by_id(task_id)
         
         if res['code'] != 200:
             raise HTTPException(res['code'], res['message'])
@@ -133,11 +133,11 @@ def deleteTask(taskID: int):
 
 
 
-    if task.userID != userAuth:
+    if task.user_id != userAuth:
         raise HTTPException(403, 'Forbidden: not your task')
 
     try:
-        res = delete_task(taskID)
+        res = delete_task(task_id)
 
         if res['code'] != 200:
             raise HTTPException(res['code'], res['message'])
