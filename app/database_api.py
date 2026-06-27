@@ -696,4 +696,4 @@ def search_tasks_by_title(user_id, title):
         )
 
     finally:
-        db.close()              
+        db.close()
