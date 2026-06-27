@@ -15,7 +15,8 @@ print("\nCREATE USER (SUCCESS)")
 
 result = create_user(
     "Test User",
-    "test_user@example.com"
+    "test_user@example.com",
+    "mypass"
 )
 
 print(result)
@@ -23,7 +24,7 @@ print(result)
 user_id = None
 
 if result["code"] == 200:
-    user_id = result["data"]["id"]
+    user_id = result["message"]["user_id"]
 
 # -----------------------------
 # CREATE USER (ERROR 409)
@@ -32,7 +33,8 @@ print("\nCREATE USER (DUPLICATE EMAIL)")
 
 result = create_user(
     "Another User",
-    "test_user@example.com"
+    "test_user@example.com",
+    "anotherpass"
 )
 
 print(result)
@@ -64,7 +66,8 @@ if user_id:
     result = update_user(
         user_id,
         "Updated User",
-        "updated_user@example.com"
+        "updated_user@example.com",
+        "updatedpass"
     )
 
     print(result)
@@ -77,7 +80,8 @@ print("\nUPDATE USER (NOT FOUND)")
 result = update_user(
     999999,
     "Nobody",
-    "nobody@example.com"
+    "nobody@example.com",
+    "nopass"
 )
 
 print(result)

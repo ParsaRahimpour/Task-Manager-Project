@@ -11,7 +11,9 @@ from database_api import (
 
 print("\n========== TASKS TEST ==========")
 
-# برای تست باید user با id=1 وجود داشته باشد
+user_id = 3
+invalid_user_id = 99999
+invalid_task_id = 99999
 
 # -----------------------------
 # CREATE TASK (SUCCESS)
@@ -21,16 +23,16 @@ print("\nCREATE TASK (SUCCESS)")
 result = create_task(
     "Learn SQLAlchemy",
     "Complete tutorial",
-    1
+    user_id
 )
 
 print(result)
 
 task_id = None
-user_id = 1
+
 
 if result["code"] == 200:
-    task_id = result["data"]["id"]
+    task_id = result["message"]["task_id"]
 
 # -----------------------------
 # CREATE TASK (ERROR 400)
@@ -40,7 +42,7 @@ print("\nCREATE TASK (INVALID USER_ID)")
 result = create_task(
     "Broken Task",
     "Should fail",
-    999999
+    invalid_user_id
 )
 
 print(result)
@@ -59,7 +61,7 @@ if task_id:
 # -----------------------------
 print("\nGET TASK BY ID (NOT FOUND)")
 
-result = get_task_by_id(999999)
+result = get_task_by_id(invalid_task_id)
 
 print(result)
 
@@ -74,7 +76,7 @@ if task_id:
         "Learn FastAPI",
         "Build APIs",
         True,
-        1
+        user_id
     )
 
     print(result)
@@ -85,11 +87,11 @@ if task_id:
 print("\nUPDATE TASK (NOT FOUND)")
 
 result = update_task(
-    999999,
+    invalid_task_id,
     "Nothing",
     "Nothing",
     False,
-    1
+    user_id
 )
 
 print(result)
@@ -105,7 +107,7 @@ if task_id:
         "Test",
         "Test",
         False,
-        999999
+        invalid_user_id
     )
 
     print(result)
@@ -113,9 +115,67 @@ if task_id:
 # -----------------------------
 # GET ALL TASKS (SUCCESS)
 # -----------------------------
-print("\nGET ALL TASKS")
+print("\nGET ALL TASKS (SUCCESS)")
 
 result = get_all_tasks()
+
+print(result)
+
+# -----------------------------
+# GET ALL TASKS BY user_id (SUCCESS)
+# -----------------------------
+print("\nGET ALL TASKS BY user_id (SUCCESS)")
+
+result = get_tasks_by_user_id(user_id)
+
+print(result)
+
+# -----------------------------
+# GET ALL TASKS BY user_id (ERROR)
+# -----------------------------
+print("\nGET ALL TASKS BY user_id (ERROR)")
+
+result = get_tasks_by_user_id(invalid_user_id)
+
+print(result)
+
+# -----------------------------
+# SEARCH TASKS BY TITLE (SUCCESS)
+# -----------------------------
+print("\nSEARCH TASKS BY TITLE (SUCCESS)")
+
+result = search_tasks_by_title(
+    user_id,
+    "Learn FastAPI"
+)
+print(result)
+
+# -----------------------------
+# SEARCH TASKS BY TITLE (ERROR)
+# -----------------------------
+print("\nSEARCH TASKS BY TITLE (ERROR)")
+
+result = search_tasks_by_title(
+    user_id,
+    "none"
+)
+print(result)
+
+# -----------------------------
+# GET COMPLETED TASKS BY user_id (SUCCESS)
+# -----------------------------
+print("\nGET COMPLETED TASKS BY USER (SUCCESS)")
+
+result = get_completed_tasks_by_user(user_id)
+
+print(result)
+
+# -----------------------------
+# GET COMPLETED TASKS BY user_id (ERROR)
+# -----------------------------
+print("\nGET COMPLETED TASKS BY USER (ERROR)")
+
+result = get_completed_tasks_by_user(invalid_user_id)
 
 print(result)
 
@@ -129,7 +189,7 @@ if task_id:
     print(result)
 
 # -----------------------------
-# DELETE TASK (ERROR 404)
+# DELETE TASK (Same user_id -> ERROR 404)
 # -----------------------------
 print("\nDELETE TASK (NOT FOUND)")
 
@@ -142,35 +202,7 @@ print(result)
 # -----------------------------
 print("\nDELETE TASK (NOT FOUND)")
 
-result = delete_task(9999)
+result = delete_task(invalid_task_id)
 
 print(result)
 
-# -----------------------------
-# GET ALL TASKS(user_id)
-# -----------------------------
-print("\nGET ALL TASKS BY user_id")
-
-result = get_tasks_by_user_id(user_id)
-
-print(result)
-
-# -----------------------------
-# SEARCH TASKS BY TITLE
-# -----------------------------
-print("\nSEARCH TASKS BY TITLE")
-
-result = search_tasks_by_title(
-    1,
-    "docker"
-)
-print(result)
-
-# -----------------------------
-# GET COMPLETED TASKS BY USER
-# -----------------------------
-print("\nGET COMPLETED TASKS BY USER")
-
-result = get_completed_tasks_by_user(user_id)
-
-print(result)
