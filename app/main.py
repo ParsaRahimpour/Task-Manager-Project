@@ -3,8 +3,12 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from database_api import get_user_by_email, get_tasks_by_user_id, search_tasks_by_title, delete_task, get_task_by_id
+import logging
 
+
+logger = logging.getLogger(__name__)
 app = FastAPI()
+
 
 class loginRequest(BaseModel):
     userEmail: str
@@ -34,10 +38,11 @@ def login(cred: loginRequest):
     
     global userAuth
     
-    if userAuth != -1:
-        raise HTTPException(400, 'you are already loged in')
+    try:
+
+        if userAuth != -1:
+            raise HTTPException(400, 'you are already loged in')
     
-    try:    
         res = get_user_by_email(cred.userEmail)
         
         if res['code'] != 200:
@@ -45,19 +50,25 @@ def login(cred: loginRequest):
         
         user = User(**res['message'])
 
+
+        if user.password == cred.password:
+            
+            userAuth = user.user_id
+
+            logger.info("User logged in successfully")
+
+            return {
+                'message': 'successfully loged in'
+            }
+        
+        
+        raise HTTPException(401, 'invalid credentials')
+
+
     except Exception as e:
+        logger.exception(e)
         raise e
 
-
-    if user.password == cred.password:
-        
-        userAuth = user.user_id
-
-        return {
-            'message': 'successfully loged in'
-        }
-        
-    raise HTTPException(401, 'invalid credentials')
 
 
 
@@ -67,9 +78,12 @@ def logout():
     global userAuth
     
     if userAuth == -1:
+        logger.error("No user is currently logged in")
         raise HTTPException(400, 'no login to logout')
     
     userAuth = -1
+
+    logger.info("User logged out successfully")
 
     return {
         'message': 'successful logout'
@@ -80,13 +94,14 @@ def logout():
 @app.get('/tasks/')
 def getTasks(title: str | None = None):
     
-    if userAuth == -1:
-        raise HTTPException(401, 'not authorized')
+    try:
+
+        if userAuth == -1:
+            raise HTTPException(401, 'not authorized')
     
 
-    chosenTasks = []
+        chosenTasks = []
 
-    try:
         if title == None:
             res = get_tasks_by_user_id(userAuth)
 
@@ -104,8 +119,11 @@ def getTasks(title: str | None = None):
             chosenTasks = res['message']
 
     except Exception as e:
+        logger.exception(e)
         raise e
 
+
+    logger.info(f"Tasks retrieved successfully for user")
 
     return {
         'message': chosenTasks
@@ -116,27 +134,23 @@ def getTasks(title: str | None = None):
 @app.delete('/tasks/{task_id}')
 def deleteTask(task_id: int):
 
-    if userAuth == -1:
-        raise HTTPException(401, 'not authorized')
-    
-
     try:
+
+        if userAuth == -1:
+            logger.exception("401: Unauthorized access attempt to delete task")
+            raise HTTPException(401, 'not authorized')
+        
+
         res = get_task_by_id(task_id)
         
         if res['code'] != 200:
             raise HTTPException(res['code'], res['message'])
         
         task = Task(**res['message'])
-    
-    except Exception as e:
-        raise e
 
+        if task.user_id != userAuth:
+            raise HTTPException(403, 'Forbidden: not your task')
 
-
-    if task.user_id != userAuth:
-        raise HTTPException(403, 'Forbidden: not your task')
-
-    try:
         res = delete_task(task_id)
 
         if res['code'] != 200:
@@ -144,9 +158,13 @@ def deleteTask(task_id: int):
         
         deletedTask = res['message']
 
+
     except Exception as e:
+        logger.exception(e)
         raise e
     
+
+    logger.info(f"Task with ID {task_id} deleted successfully for user")
     
     return {
         'message': deletedTask
