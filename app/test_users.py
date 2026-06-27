@@ -2,6 +2,7 @@ from database_api import (
     create_user,
     get_all_users,
     get_user_by_id,
+    get_user_by_email,
     update_user,
     delete_user
 )
@@ -54,6 +55,28 @@ if user_id:
 print("\nGET USER BY ID (NOT FOUND)")
 
 result = get_user_by_id(999999)
+
+print(result)
+
+# -----------------------------
+# GET USER BY EMAIL (SUCCESS)
+# -----------------------------
+print("\nGET USER BY EMAIL (SUCCESS)")
+
+result = get_user_by_email(
+    "test_user@example.com"
+)
+
+print(result)
+
+# -----------------------------
+# GET USER BY EMAIL (NOT FOUND)
+# -----------------------------
+print("\nGET USER BY EMAIL (NOT FOUND)")
+
+result = get_user_by_email(
+    "unknown@example.com"
+)
 
 print(result)
 
