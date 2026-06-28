@@ -3,6 +3,7 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from database_api import get_user_by_email, get_tasks_by_user_id, search_tasks_by_title, delete_task, get_task_by_id
+from database_api import get_completed_tasks_by_user as db_get_all_tasks
 import logging
 
 
@@ -31,6 +32,44 @@ class Task(BaseModel):
 
 
 userAuth = -1
+
+
+@app.get("/health")
+async def get_health():
+    try:
+        return {"status" : "ok" }
+    except Exception as e:
+            logger.exception(e)
+    raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@app.get("/")
+async def root():
+        try:
+            return {"message": "Task Management API"}
+        except Exception as e:
+            logger.exception(e)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+
+@app.get("/tasks/completed/{id}")
+async def get_completed_task(id : int):
+    try:
+        if userAuth == -1:
+            raise HTTPException(401, 'not authorized')
+        result = db_get_all_tasks(id)
+        if result["code"] != 200:
+            raise HTTPException(status_code=result["code"], detail=result["message"])
+
+        
+        if result == None:
+            return {"error" : "Not found Any task that you want"}
+        return {"success" , result}
+    except Exception as e:
+            logger.exception(e)
+    raise HTTPException(status_code=500, detail="Internal server error")
+
 
 
 @app.post('/login')
