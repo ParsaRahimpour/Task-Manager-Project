@@ -1,9 +1,41 @@
+# In the name of Allah
+
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from database_api import get_user_by_email, get_tasks_by_user_id, search_tasks_by_title, delete_task, get_task_by_id
+from database_api import get_completed_tasks_by_user as db_get_all_tasks
+from database_api import get_all_users as db_get_all_users, delete_user as db_delete_user
+
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 from database_api import create_user, get_user_by_id, update_user, get_user_by_email
 
+import logging
+
+
+logger = logging.getLogger(__name__)
 app = FastAPI()
+
+
+class loginRequest(BaseModel):
+    userEmail: str
+    password: str
+
+
+class User(BaseModel):
+    user_id: int
+    name: str
+    email: str
+    password: str
+
+
+class Task(BaseModel):
+    task_id: int
+    title: str
+    description: str
+    completed: bool
+    user_id: int
+
 
 class UserCreate(BaseModel):
     name: str
@@ -21,50 +53,248 @@ class UserResponse(BaseModel):
     email: str
     password: str
 
-class loginRequest(BaseModel):
-    userEmail: str
-    password: str
 
 userAuth = -1
 
+
+@app.get("/health")
+async def get_health():
+    try:
+        return {"status" : "ok" }
+    except Exception as e:
+            logger.exception(e)
+    raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@app.get("/")
+async def root():
+        try:
+            return {"message": "Task Management API"}
+        except Exception as e:
+            logger.exception(e)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+
+@app.get("/tasks/completed/{id}")
+async def get_completed_task(id : int):
+    try:
+        if userAuth == -1:
+            raise HTTPException(401, 'not authorized')
+        result = db_get_all_tasks(id)
+        if result["code"] != 200:
+            raise HTTPException(status_code=result["code"], detail=result["message"])
+
+        
+        if result == None:
+            return {"error" : "Not found Any task that you want"}
+        return {"success" , result}
+    except Exception as e:
+            logger.exception(e)
+    raise HTTPException(status_code=500, detail="Internal server error")
+
+
+
 @app.post('/login')
 def login(cred: loginRequest):
+    
     global userAuth
     
-    if userAuth != -1:
-        raise HTTPException(400, 'you are already logged in')
-    
     try:
+
+        if userAuth != -1:
+            raise HTTPException(400, 'you are already loged in')
+    
         res = get_user_by_email(cred.userEmail)
         
         if res['code'] != 200:
             raise HTTPException(res['code'], res['message'])
         
-        user = UserResponse(**res['message'])
-    
+        user = User(**res['message'])
+
+
+        if user.password == cred.password:
+            
+            userAuth = user.user_id
+
+            logger.info("User logged in successfully")
+
+            return {
+                'message': 'successfully loged in'
+            }
+        
+        
+        raise HTTPException(401, 'invalid credentials')
+
+
     except Exception as e:
+        logger.exception(e)
         raise e
-    
-    if user.password == cred.password:
-        userAuth = user.id
-        return {
-            'message': 'successfully logged in'
-        }
-    
-    raise HTTPException(401, 'invalid credentials')
+
+
+
 
 @app.get('/logout')
 def logout():
+
     global userAuth
     
     if userAuth == -1:
+        logger.error("No user is currently logged in")
         raise HTTPException(400, 'no login to logout')
     
     userAuth = -1
-    
+
+    logger.info("User logged out successfully")
+
     return {
         'message': 'successful logout'
     }
+
+
+        
+@app.get('/tasks/')
+def getTasks(title: str | None = None):
+    
+    try:
+
+        if userAuth == -1:
+            raise HTTPException(401, 'not authorized')
+    
+
+        chosenTasks = []
+
+        if title == None:
+            res = get_tasks_by_user_id(userAuth)
+
+            if res['code'] != 200:
+                raise HTTPException(res['code'], res['message'])
+            
+            chosenTasks = res['message']
+
+        else:
+            res = search_tasks_by_title(userAuth, title)
+
+            if res['code'] != 200:
+                raise HTTPException(res['code'], res['message'])
+            
+            chosenTasks = res['message']
+
+    except Exception as e:
+        logger.exception(e)
+        raise e
+
+
+    logger.info(f"Tasks retrieved successfully for user")
+
+    return {
+        'message': chosenTasks
+    }
+
+
+
+@app.delete('/tasks/{task_id}')
+def deleteTask(task_id: int):
+
+    try:
+
+        if userAuth == -1:
+            logger.exception("401: Unauthorized access attempt to delete task")
+            raise HTTPException(401, 'not authorized')
+        
+
+        res = get_task_by_id(task_id)
+        
+        if res['code'] != 200:
+            raise HTTPException(res['code'], res['message'])
+        
+        task = Task(**res['message'])
+
+        if task.user_id != userAuth:
+            raise HTTPException(403, 'Forbidden: not your task')
+
+        res = delete_task(task_id)
+
+        if res['code'] != 200:
+            raise HTTPException(res['code'], res['message'])
+        
+        deletedTask = res['message']
+
+
+    except Exception as e:
+        logger.exception(e)
+        raise e
+    
+
+    logger.info(f"Task with ID {task_id} deleted successfully for user")
+    
+    return {
+        'message': deletedTask
+    }
+
+  
+  
+
+@app.get("/users/")
+async def get_all_users():
+    """
+    Retrieve all users.
+    Requires authentication (userAuth != -1).
+    """
+    global userAuth
+    try:
+        if userAuth == -1:
+            logger.warning("Unauthorized access attempt to /users/")
+            raise HTTPException(status_code=401, detail="Not authorized")
+
+        result = db_get_all_users()
+        if result["code"] != 200:
+            logger.error(f"get_all_users failed: {result['message']}")
+            raise HTTPException(status_code=result["code"], detail=result["message"])
+
+        users = result["message"] if result["message"] else []
+        count = len(users)
+        logger.info(f"User {userAuth} retrieved all users. Count: {count}")
+        return {"users": users, "count": count}
+
+    except HTTPException:
+        raise  # Let FastAPI handle known HTTP errors
+    except Exception as e:
+        logger.exception(f"Unexpected error in get_all_users: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@app.delete("/users/{user_id}")
+async def delete_user(user_id: int):
+    """
+    Delete a user by ID.
+    Requires authentication (userAuth != -1).
+    Validates that user_id is non-negative.
+    """
+    global userAuth
+    try:
+        if userAuth == -1:
+            logger.warning("Unauthorized delete attempt")
+            raise HTTPException(status_code=401, detail="Not authorized")
+
+        if user_id < 0:
+            logger.warning(f"Invalid user_id {user_id} in delete attempt")
+            raise HTTPException(status_code=400, detail="Invalid user ID")
+
+        result = db_delete_user(user_id)
+        if result["code"] != 200:
+            logger.error(f"Delete user failed for id {user_id}: {result['message']}")
+            raise HTTPException(status_code=result["code"], detail=result["message"])
+
+        logger.info(f"User {user_id} deleted successfully by user {userAuth}")
+        return {"message": "User deleted successfully", "user": result["message"]}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Unexpected error in delete_user: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
 
 @app.post('/users', status_code=201)
 def create_user_endpoint(user: UserCreate):
