@@ -198,7 +198,44 @@ def get_user_by_email(email):
         )
 
     finally:
-        db.close()        
+        db.close()
+        
+        
+def get_user_by_password(password):
+    db = SessionLocal()
+
+    try:
+        result = db.execute(
+            text("""
+                SELECT *
+                FROM users
+                WHERE password = :password
+            """),
+            {
+                "password": password
+            }
+        )
+
+        row = result.fetchone()
+
+        if row is None:
+            return error_response(
+                404,
+                f'User with email "{password}" not found.'
+            )
+
+        return success_response(
+            row_to_dict(row, USER_COLUMNS)
+        )
+
+    except Exception:
+        return error_response(
+            500,
+            "Database error."
+        )
+
+    finally:
+        db.close()                
 
 
 def update_user(user_id, name, email, password):

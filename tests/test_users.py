@@ -1,13 +1,17 @@
-from database_api import (
+from app.database_api import (
     create_user,
     get_all_users,
     get_user_by_id,
     get_user_by_email,
+    get_user_by_password,
     update_user,
     delete_user
 )
 
 print("\n========== USERS TEST ==========")
+
+valid_password='123'
+invalid_password='aaa'
 
 # -----------------------------
 # CREATE USER (SUCCESS)
@@ -81,6 +85,28 @@ result = get_user_by_email(
 print(result)
 
 # -----------------------------
+# GET USER BY PASSWORD (SUCCESS)
+# -----------------------------
+print("\nGET USER BY PASSWORD (SUCCESS)")
+
+result = get_user_by_password(
+    valid_password
+)
+
+print(result)
+
+# -----------------------------
+# GET USER BY PASSWORD (ERROR)
+# -----------------------------
+print("\nGET USER BY PASSWORD (ERROR)")
+
+result = get_user_by_password(
+    invalid_password
+)
+
+print(result)
+
+# -----------------------------
 # UPDATE USER (SUCCESS)
 # -----------------------------
 print("\nUPDATE USER (SUCCESS)")
@@ -94,6 +120,21 @@ if user_id:
     )
 
     print(result)
+
+# -----------------------------
+# UPDATE admin (ERROR 500)
+# -----------------------------
+print("\nUPDATE admin (ERROR 500)")
+
+
+result = update_user(
+    1,
+    "Updated admin",
+    "updated_admin@admin.com",
+    "updatedAdminPass"
+)
+
+print(result)
 
 # -----------------------------
 # UPDATE USER (ERROR 404)
