@@ -377,12 +377,26 @@ def create_task(title, description, user_id):
             row_to_dict(row, TASK_COLUMNS)
         )
 
-    except IntegrityError:
+    except IntegrityError as e:
         db.rollback()
+
+        constraint = getattr(e.orig.diag, "constraint_name", None)
+
+        if constraint == "uq_user_id_title":
+            return error_response(
+                409,
+                "A task with this title already exists for this user."
+            )
+
+        if constraint == "fk_user_id":
+            return error_response(
+                400,
+                "Invalid user id."
+            )
 
         return error_response(
             400,
-            "Invalid user id"
+            "Database integrity error."
         )
 
     except Exception:
@@ -390,7 +404,7 @@ def create_task(title, description, user_id):
 
         return error_response(
             500,
-            "Database error"
+            "Database error."
         )
 
     finally:
@@ -560,12 +574,26 @@ def update_task(
             row_to_dict(row, TASK_COLUMNS)
         )
 
-    except IntegrityError:
+    except IntegrityError as e:
         db.rollback()
+
+        constraint = getattr(e.orig.diag, "constraint_name", None)
+
+        if constraint == "uq_user_id_title":
+            return error_response(
+                409,
+                "A task with this title already exists for this user."
+            )
+
+        if constraint == "fk_user_id":
+            return error_response(
+                400,
+                "Invalid user_id."
+            )
 
         return error_response(
             400,
-            "Invalid user_id."
+            "Database integrity error."
         )
 
     except Exception:
