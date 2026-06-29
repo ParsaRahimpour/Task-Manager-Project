@@ -68,9 +68,9 @@ class CreateTaskRequest(BaseModel):
     description: str
 
 class UpdateTaskRequest(BaseModel):
-    title: str
-    description: str
-    completed: bool
+    title: Optional[str] = None
+    description: Optional[str] = None
+    completed: Optional[bool] = None
 
 
 userAuth = -1
@@ -416,7 +416,6 @@ def createTask(body: CreateTaskRequest):
         raise HTTPException(500, 'internal server error')
     return {'message': createdTask}
 
-
 @app.put('/tasks/{task_id}')
 def updateTask(task_id: int, body: UpdateTaskRequest):
     if userAuth == -1:
@@ -433,7 +432,13 @@ def updateTask(task_id: int, body: UpdateTaskRequest):
     if task.user_id != userAuth:
         raise HTTPException(403, 'Forbidden: not your task')
     try:
-        res = update_task(task_id, body.title, body.description, body.completed, userAuth)
+        res = update_task(
+            task_id,
+            body.title if body.title is not None else task.title,
+            body.description if body.description is not None else task.description,
+            body.completed if body.completed is not None else task.completed,
+            userAuth
+        )
         if res['code'] != 200:
             raise HTTPException(res['code'], res['message'])
         updatedTask = res['message']
@@ -442,7 +447,6 @@ def updateTask(task_id: int, body: UpdateTaskRequest):
     except Exception:
         raise HTTPException(500, 'internal server error')
     return {'message': updatedTask}
-
 
 @app.get('/tasks/{task_id}')
 def getTaskById(task_id: int):
