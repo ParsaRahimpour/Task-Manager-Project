@@ -1,6 +1,6 @@
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
-from db import SessionLocal
+from .db import SessionLocal
 
 
 # -----------------------------
@@ -221,7 +221,7 @@ def get_user_by_password(password):
         if row is None:
             return error_response(
                 404,
-                f'User with email "{password}" not found.'
+                f'User with password "{password}" not found.'
             )
 
         return success_response(
