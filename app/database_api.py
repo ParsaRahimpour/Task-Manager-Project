@@ -1,6 +1,7 @@
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
-from db import SessionLocal
+from typing import Optional
+from .db import SessionLocal
 
 
 # -----------------------------
@@ -93,141 +94,114 @@ def create_user(name, email, password):
         db.close()
 
 
-def get_all_users():
+def get_users(
+    user_id: Optional[int] = None,
+    name: Optional[str] = None,
+    email: Optional[str] = None,
+    password: Optional[str] = None
+):
     db = SessionLocal()
 
     try:
-        result = db.execute(
-            text("""
-                SELECT *
-                FROM users
-            """)
-        )
+        conditions = []
+        params = {}
 
-        users = [
-            row_to_dict(row, USER_COLUMNS)
-            for row in result.fetchall()
-        ]
+        # Build dynamic filters
+        if user_id is not None:
+            conditions.append("user_id = :user_id")
+            params["user_id"] = user_id
+
+        if name is not None:
+            conditions.append("name = :name")
+            params["name"] = name
+
+        if email is not None:
+            conditions.append("email = :email")
+            params["email"] = email
+
+        if password is not None:
+            conditions.append("password = :password")
+            params["password"] = password
+
+        query = "SELECT * FROM users"
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+
+        result = db.execute(text(query), params)
+        rows = result.fetchall()
+
+        users = [row_to_dict(row, USER_COLUMNS) for row in rows]
+
 
         if not users:
-            return error_response(
-                404,
-                "No users found."
-            )
+            if not conditions:
+                return error_response(
+                    404,
+                    "No users found."
+                )
+            else:
+                return error_response(
+                    404,
+                    "No users match the provided filters."
+                )
 
         return success_response(users)
 
     except Exception:
         return error_response(
             500,
-            "Database error."
+            "Database error"
         )
 
     finally:
         db.close()
+               
 
-
-def get_user_by_id(user_id):
+def update_user(
+    user_id: int,
+    name: Optional[str] = None,
+    email: Optional[str] = None,
+    password: Optional[str] = None
+):
     db = SessionLocal()
 
     try:
-        result = db.execute(
-            text("""
-                SELECT *
-                FROM users
-                WHERE user_id = :user_id
-            """),
-            {
-                "user_id": user_id
-            }
-        )
+        fields = {}
+        params = {"user_id": user_id}
 
-        row = result.fetchone()
+        if name is not None:
+            fields["name"] = name
 
-        if row is None:
+        if email is not None:
+            fields["email"] = email
+
+        if password is not None:
+            fields["password"] = password
+
+        if not fields:
             return error_response(
-                404,
-                f"User with user_id {user_id} not found."
+                400,
+                "No data provided to update."
             )
-
-        return success_response(
-            row_to_dict(row, USER_COLUMNS)
+            
+        set_clause = ", ".join(
+            f"{key} = :{key}" for key in fields.keys()
         )
 
-    except Exception:
-        return error_response(
-            500,
-            "Database error."
-        )
+        params.update(fields)
 
-    finally:
-        db.close()
-        
+        query = f"""
+            UPDATE users
+            SET {set_clause}
+            WHERE user_id = :user_id
+            RETURNING *
+        """
 
-def get_user_by_email(email):
-    db = SessionLocal()
-
-    try:
-        result = db.execute(
-            text("""
-                SELECT *
-                FROM users
-                WHERE email = :email
-            """),
-            {
-                "email": email
-            }
-        )
-
-        row = result.fetchone()
-
-        if row is None:
-            return error_response(
-                404,
-                f'User with email "{email}" not found.'
-            )
-
-        return success_response(
-            row_to_dict(row, USER_COLUMNS)
-        )
-
-    except Exception:
-        return error_response(
-            500,
-            "Database error."
-        )
-
-    finally:
-        db.close()        
-
-
-def update_user(user_id, name, email, password):
-    db = SessionLocal()
-
-    try:
-        result = db.execute(
-            text("""
-                UPDATE users
-                SET
-                    name = :name,
-                    email = :email,
-                    password = :password
-                WHERE user_id = :user_id
-                RETURNING *
-            """),
-            {
-                "user_id": user_id,
-                "name": name,
-                "email": email,
-                "password": password
-            }
-        )
-
+        result = db.execute(text(query), params)
         row = result.fetchone()
 
         if row is None:
             db.rollback()
-
             return error_response(
                 404,
                 f"User with user_id {user_id} not found."
@@ -239,17 +213,30 @@ def update_user(user_id, name, email, password):
             row_to_dict(row, USER_COLUMNS)
         )
 
-    except IntegrityError:
+    except IntegrityError as e:
         db.rollback()
+
+        error_msg = str(e.orig).lower()
+
+        if "unique_email" in error_msg:
+            return error_response(
+                409,
+                "Email already exists. Please use a different email."
+            )
+
+        if "unique_password" in error_msg:
+            return error_response(
+                409,
+                "Password already exists. Please choose a different password."
+            )
 
         return error_response(
             409,
-            "Email already exists."
+            "Duplicate value error."
         )
 
     except Exception:
         db.rollback()
-
         return error_response(
             500,
             "Database error."
@@ -340,12 +327,26 @@ def create_task(title, description, user_id):
             row_to_dict(row, TASK_COLUMNS)
         )
 
-    except IntegrityError:
+    except IntegrityError as e:
         db.rollback()
+
+        constraint = getattr(e.orig.diag, "constraint_name", None)
+
+        if constraint == "uq_user_id_title":
+            return error_response(
+                409,
+                "A task with this title already exists for this user."
+            )
+
+        if constraint == "fk_user_id":
+            return error_response(
+                400,
+                "Invalid user id."
+            )
 
         return error_response(
             400,
-            "Invalid user id"
+            "Database integrity error."
         )
 
     except Exception:
@@ -353,165 +354,131 @@ def create_task(title, description, user_id):
 
         return error_response(
             500,
-            "Database error"
-        )
-
-    finally:
-        db.close()
-
-
-def get_all_tasks():
-    db = SessionLocal()
-
-    try:
-        result = db.execute(
-            text("SELECT * FROM tasks")
-        )
-
-        tasks = [
-            row_to_dict(row, TASK_COLUMNS)
-            for row in result.fetchall()
-        ]
-
-        return success_response(tasks)
-
-    except Exception:
-        return error_response(
-            500,
-            "Database error"
-        )
-
-    finally:
-        db.close()
-
-
-def get_task_by_id(task_id):
-    db = SessionLocal()
-
-    try:
-        result = db.execute(
-            text("""
-                SELECT *
-                FROM tasks
-                WHERE task_id = :task_id
-            """),
-            {
-                "task_id": task_id
-            }
-        )
-
-        row = result.fetchone()
-
-        if row is None:
-            return error_response(
-                404,
-                f"Task with task_id {task_id} not found."
-            )
-
-        return success_response(
-            row_to_dict(row, TASK_COLUMNS)
-        )
-
-    except Exception:
-        return error_response(
-            500,
             "Database error."
         )
 
     finally:
         db.close()
-        
-        
-def get_tasks_by_user_id(user_id):
-    db = SessionLocal()
-
-    try:
-        user = db.execute(
-            text("""
-                SELECT user_id
-                FROM users
-                WHERE user_id = :user_id
-            """),
-            {
-                "user_id": user_id
-            }
-        ).fetchone()
-
-        if user is None:
-            return error_response(
-                404,
-                f"User with user_id {user_id} not found."
-            )
-
-        result = db.execute(
-            text("""
-                SELECT *
-                FROM tasks
-                WHERE user_id = :user_id
-            """),
-            {
-                "user_id": user_id
-            }
-        )
-
-        tasks = [
-            row_to_dict(row, TASK_COLUMNS)
-            for row in result.fetchall()
-        ]
-
-        if not tasks:
-            return error_response(
-                404,
-                f"User with user_id {user_id} has no tasks."
-            )
-
-        return success_response(tasks)
-
-    except Exception:
-        return error_response(
-            500,
-            "Database error."
-        )
-
-    finally:
-        db.close()        
 
 
-def update_task(
-    task_id,
-    title,
-    description,
-    completed,
-    user_id
+def get_tasks(
+    task_id: Optional[int] = None,
+    user_id: Optional[int] = None,
+    title: Optional[str] = None,
+    description: Optional[str] = None,
+    completed: Optional[bool] = None
 ):
     db = SessionLocal()
 
     try:
-        result = db.execute(
-            text("""
-                UPDATE tasks
-                SET
-                    title = :title,
-                    description = :description,
-                    completed = :completed,
-                    user_id = :user_id
-                WHERE task_id = :task_id
-                RETURNING *
-            """),
-            {
-                "task_id": task_id,
-                "title": title,
-                "description": description,
-                "completed": completed,
-                "user_id": user_id
-            }
+        conditions = []
+        params = {}
+
+
+        if task_id is not None:
+            conditions.append("task_id = :task_id")
+            params["task_id"] = task_id
+
+        if user_id is not None:
+            conditions.append("user_id = :user_id")
+            params["user_id"] = user_id
+
+        if title is not None:
+            conditions.append("title ILIKE :title")
+            params["title"] = f"%{title}%"
+
+        if description is not None:
+            conditions.append("description ILIKE :description")
+            params["description"] = f"%{description}%"
+
+        if completed is not None:
+            conditions.append("completed = :completed")
+            params["completed"] = completed
+
+
+        query = "SELECT * FROM tasks"
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+
+        result = db.execute(text(query), params)
+        rows = result.fetchall()
+
+        tasks = [row_to_dict(row, TASK_COLUMNS) for row in rows]
+
+        if not tasks:
+            if not conditions:
+                return error_response(
+                    404,
+                    "No tasks found."
+                )
+            else:
+                return error_response(
+                    404,
+                    "No tasks match the provided filters."
+                )
+
+        return success_response(tasks)
+
+    except Exception:
+        return error_response(
+            500,
+            "Database error"
         )
 
+    finally:
+        db.close()
+
+
+
+def update_task(
+    task_id: int,
+    title: Optional[str] = None,
+    description: Optional[str] = None,
+    completed: Optional[bool] = None,
+    user_id: Optional[int] = None
+):
+    db = SessionLocal()
+
+    try:
+        fields = {}
+        params = {"task_id": task_id}
+
+        if title is not None:
+            fields["title"] = title
+
+        if description is not None:
+            fields["description"] = description
+
+        if completed is not None:
+            fields["completed"] = completed
+
+        if user_id is not None:
+            fields["user_id"] = user_id
+
+        if not fields:
+            return error_response(
+                400,
+                "No data provided to update."
+            )
+
+        set_clause = ", ".join(
+            f"{key} = :{key}" for key in fields.keys()
+        )
+
+        params.update(fields)
+
+        query = f"""
+            UPDATE tasks
+            SET {set_clause}
+            WHERE task_id = :task_id
+            RETURNING *
+        """
+
+        result = db.execute(text(query), params)
         row = result.fetchone()
 
         if row is None:
             db.rollback()
-
             return error_response(
                 404,
                 f"Task with task_id {task_id} not found."
@@ -523,20 +490,33 @@ def update_task(
             row_to_dict(row, TASK_COLUMNS)
         )
 
-    except IntegrityError:
+    except IntegrityError as e:
         db.rollback()
+
+        constraint = getattr(e.orig.diag, "constraint_name", None)
+
+        if constraint == "uq_user_id_title":
+            return error_response(
+                409,
+                "A task with this title already exists for this user."
+            )
+
+        if constraint == "fk_user_id":
+            return error_response(
+                400,
+                "Invalid user_id. User does not exist."
+            )
 
         return error_response(
             400,
-            "Invalid user_id."
+            "Database integrity error "
         )
 
     except Exception:
         db.rollback()
-
         return error_response(
             500,
-            "Database error."
+            "Database error"
         )
 
     finally:
@@ -577,119 +557,6 @@ def delete_task(task_id):
     except Exception:
         db.rollback()
 
-        return error_response(
-            500,
-            "Database error."
-        )
-
-    finally:
-        db.close()
-        
-        
-def get_completed_tasks_by_user(user_id):
-    db = SessionLocal()
-
-    try:
-        user = db.execute(
-            text("""
-                SELECT user_id
-                FROM users
-                WHERE user_id = :user_id
-            """),
-            {
-                "user_id": user_id
-            }
-        ).fetchone()
-
-        if user is None:
-            return error_response(
-                404,
-                f"User with user_id {user_id} not found."
-            )
-
-        result = db.execute(
-            text("""
-                SELECT *
-                FROM tasks
-                WHERE user_id = :user_id
-                  AND completed = true
-            """),
-            {
-                "user_id": user_id
-            }
-        )
-
-        tasks = [
-            row_to_dict(row, TASK_COLUMNS)
-            for row in result.fetchall()
-        ]
-
-        if not tasks:
-            return error_response(
-                404,
-                f"User with user_id {user_id} has no completed tasks."
-            )
-
-        return success_response(tasks)
-
-    except Exception:
-        return error_response(
-            500,
-            "Database error."
-        )
-
-    finally:
-        db.close()
-        
-        
-def search_tasks_by_title(user_id, title):
-    db = SessionLocal()
-
-    try:
-        user = db.execute(
-            text("""
-                SELECT user_id
-                FROM users
-                WHERE user_id = :user_id
-            """),
-            {
-                "user_id": user_id
-            }
-        ).fetchone()
-
-        if user is None:
-            return error_response(
-                404,
-                f"User with user_id {user_id} not found."
-            )
-
-        result = db.execute(
-            text("""
-                SELECT *
-                FROM tasks
-                WHERE user_id = :user_id
-                  AND title ILIKE :title
-            """),
-            {
-                "user_id": user_id,
-                "title": f"%{title}%"
-            }
-        )
-
-        tasks = [
-            row_to_dict(row, TASK_COLUMNS)
-            for row in result.fetchall()
-        ]
-
-        if not tasks:
-            return error_response(
-                404,
-                f'No tasks found for user_id {user_id} with title containing "{title}".'
-            )
-
-        return success_response(tasks)
-
-    except Exception:
         return error_response(
             500,
             "Database error."

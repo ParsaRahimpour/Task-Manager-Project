@@ -1,12 +1,8 @@
-from database_api import (
+from app.database_api import (
     create_task,
-    get_all_tasks,
-    get_task_by_id,
+    get_tasks,
     update_task,
-    delete_task,
-    get_tasks_by_user_id,
-    search_tasks_by_title,
-    get_completed_tasks_by_user
+    delete_task
 )
 
 print("\n========== TASKS TEST ==========")
@@ -44,24 +40,6 @@ result = create_task(
     "Should fail",
     invalid_user_id
 )
-
-print(result)
-
-# -----------------------------
-# GET TASK BY ID (SUCCESS)
-# -----------------------------
-print("\nGET TASK BY ID (SUCCESS)")
-
-if task_id:
-    result = get_task_by_id(task_id)
-    print(result)
-
-# -----------------------------
-# GET TASK BY ID (ERROR 404)
-# -----------------------------
-print("\nGET TASK BY ID (NOT FOUND)")
-
-result = get_task_by_id(invalid_task_id)
 
 print(result)
 
@@ -111,73 +89,6 @@ if task_id:
     )
 
     print(result)
-
-# -----------------------------
-# GET ALL TASKS (SUCCESS)
-# -----------------------------
-print("\nGET ALL TASKS (SUCCESS)")
-
-result = get_all_tasks()
-
-print(result)
-
-# -----------------------------
-# GET ALL TASKS BY user_id (SUCCESS)
-# -----------------------------
-print("\nGET ALL TASKS BY user_id (SUCCESS)")
-
-result = get_tasks_by_user_id(user_id)
-
-print(result)
-
-# -----------------------------
-# GET ALL TASKS BY user_id (ERROR)
-# -----------------------------
-print("\nGET ALL TASKS BY user_id (ERROR)")
-
-result = get_tasks_by_user_id(invalid_user_id)
-
-print(result)
-
-# -----------------------------
-# SEARCH TASKS BY TITLE (SUCCESS)
-# -----------------------------
-print("\nSEARCH TASKS BY TITLE (SUCCESS)")
-
-result = search_tasks_by_title(
-    user_id,
-    "Learn FastAPI"
-)
-print(result)
-
-# -----------------------------
-# SEARCH TASKS BY TITLE (ERROR)
-# -----------------------------
-print("\nSEARCH TASKS BY TITLE (ERROR)")
-
-result = search_tasks_by_title(
-    user_id,
-    "none"
-)
-print(result)
-
-# -----------------------------
-# GET COMPLETED TASKS BY user_id (SUCCESS)
-# -----------------------------
-print("\nGET COMPLETED TASKS BY USER (SUCCESS)")
-
-result = get_completed_tasks_by_user(user_id)
-
-print(result)
-
-# -----------------------------
-# GET COMPLETED TASKS BY user_id (ERROR)
-# -----------------------------
-print("\nGET COMPLETED TASKS BY USER (ERROR)")
-
-result = get_completed_tasks_by_user(invalid_user_id)
-
-print(result)
 
 # -----------------------------
 # DELETE TASK (SUCCESS)
