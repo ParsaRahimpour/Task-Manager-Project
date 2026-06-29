@@ -192,9 +192,7 @@ def deleteTask(task_id: int, authUserID: int = Depends(authorize)):
 async def get_all_users(authUserID: int = Depends(authorize)):
 
     try:
-        if authUserID != 1:
-            logger.warning("Unauthorized access attempt to /users/")
-            raise HTTPException(status_code=401, detail="Not authorized, just super user has access")
+        # Removed: authUserID != 1 check
 
         result = db_get_all_users()
         if result["code"] != 200:
@@ -210,7 +208,7 @@ async def get_all_users(authUserID: int = Depends(authorize)):
         raise
     except Exception as e:
         logger.exception(f"Unexpected error in get_all_users: {e}")
-        raise e
+        raise HTTPException(status_code=500, detail="Internal server error")  # Changed: was raise e
 
 
 
@@ -218,20 +216,20 @@ async def get_all_users(authUserID: int = Depends(authorize)):
 async def delete_user(user_id: int, authUserID: int = Depends(authorize)):
     """
     Delete a user by ID.
-    Requires authentication HTTPException(status_code=500, detail="Internal server error")(userAuth != -1).
+    Requires authentication (userAuth != -1).
     Validates that user_id is non-negative.
     """
     
     try:
-        if authUserID != 1:
-            logger.warning("Unauthorized delete attempt")
-            raise HTTPException(status_code=401, detail="Not authorized, just super user has access")
-        
-        if user_id == 1:
-            logger.warning("Forbidden delete attempt")
-            raise HTTPException(status_code=403, detail="Forbidden: super user can not be deleted")
+        # Removed: authUserID != 1 check
 
-        if user_id < 2:
+        # Changed: self-deletion prevention
+        if user_id == authUserID:
+            logger.warning("Forbidden delete attempt")
+            raise HTTPException(status_code=403, detail="Cannot delete your own account")
+
+        # Changed: invalid user_id check
+        if user_id < 1:
             logger.warning(f"Invalid user_id {user_id} in delete attempt")
             raise HTTPException(status_code=400, detail="Invalid user ID")
 
@@ -248,7 +246,6 @@ async def delete_user(user_id: int, authUserID: int = Depends(authorize)):
     except Exception as e:
         logger.exception(f"Unexpected error in delete_user: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
-
 
 
 
