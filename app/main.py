@@ -10,7 +10,7 @@ from pydantic import BaseModel, EmailStr
 from typing import Optional
 from database_api import create_user, get_user_by_id, update_user, get_user_by_email
 
-from database_api import create_task, update_task, get_task_by_id, search_tasks_by_title
+from database_api import create_task, update_task, get_task_by_id, get_tasks_by_user_id
 
 import logging
 
@@ -277,7 +277,7 @@ async def get_all_users():
         return {"users": users, "count": count}
 
     except HTTPException:
-        raise  # Let FastAPI handle known HTTP errors
+        raise
     except Exception as e:
         logger.exception(f"Unexpected error in get_all_users: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -391,7 +391,6 @@ def update_user_endpoint(
     
     except Exception as e:
         raise e
-    
 
 
 @app.post('/tasks/')
@@ -399,9 +398,9 @@ def createTask(body: CreateTaskRequest):
     if userAuth == -1:
         raise HTTPException(401, 'not authorized')
 
-    check = search_tasks_by_title(userAuth, body.title)
-    if check['code'] == 200:
-        for t in check['message']:
+    existing = get_tasks_by_user_id(userAuth)
+    if existing['code'] == 200:
+        for t in existing['message']:
             if t['title'].lower() == body.title.lower():
                 raise HTTPException(409, 'A task with this title already exists.')
 
@@ -415,6 +414,7 @@ def createTask(body: CreateTaskRequest):
     except Exception:
         raise HTTPException(500, 'internal server error')
     return {'message': createdTask}
+
 
 @app.put('/tasks/{task_id}')
 def updateTask(task_id: int, body: UpdateTaskRequest):
@@ -447,6 +447,7 @@ def updateTask(task_id: int, body: UpdateTaskRequest):
     except Exception:
         raise HTTPException(500, 'internal server error')
     return {'message': updatedTask}
+
 
 @app.get('/tasks/{task_id}')
 def getTaskById(task_id: int):
