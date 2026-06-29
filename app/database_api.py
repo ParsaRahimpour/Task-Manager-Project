@@ -157,33 +157,51 @@ def get_users(
         db.close()
                
 
-def update_user(user_id, name, email, password):
+def update_user(
+    user_id: int,
+    name: Optional[str] = None,
+    email: Optional[str] = None,
+    password: Optional[str] = None
+):
     db = SessionLocal()
 
     try:
-        result = db.execute(
-            text("""
-                UPDATE users
-                SET
-                    name = :name,
-                    email = :email,
-                    password = :password
-                WHERE user_id = :user_id
-                RETURNING *
-            """),
-            {
-                "user_id": user_id,
-                "name": name,
-                "email": email,
-                "password": password
-            }
+        fields = {}
+        params = {"user_id": user_id}
+
+        if name is not None:
+            fields["name"] = name
+
+        if email is not None:
+            fields["email"] = email
+
+        if password is not None:
+            fields["password"] = password
+
+        if not fields:
+            return error_response(
+                400,
+                "No data provided to update."
+            )
+            
+        set_clause = ", ".join(
+            f"{key} = :{key}" for key in fields.keys()
         )
 
+        params.update(fields)
+
+        query = f"""
+            UPDATE users
+            SET {set_clause}
+            WHERE user_id = :user_id
+            RETURNING *
+        """
+
+        result = db.execute(text(query), params)
         row = result.fetchone()
 
         if row is None:
             db.rollback()
-
             return error_response(
                 404,
                 f"User with user_id {user_id} not found."
@@ -195,17 +213,30 @@ def update_user(user_id, name, email, password):
             row_to_dict(row, USER_COLUMNS)
         )
 
-    except IntegrityError:
+    except IntegrityError as e:
         db.rollback()
+
+        error_msg = str(e.orig).lower()
+
+        if "unique_email" in error_msg:
+            return error_response(
+                409,
+                "Email already exists. Please use a different email."
+            )
+
+        if "unique_password" in error_msg:
+            return error_response(
+                409,
+                "Password already exists. Please choose a different password."
+            )
 
         return error_response(
             409,
-            "Email already exists."
+            "Duplicate value error."
         )
 
     except Exception:
         db.rollback()
-
         return error_response(
             500,
             "Database error."
@@ -400,40 +431,54 @@ def get_tasks(
 
 
 def update_task(
-    task_id,
-    title,
-    description,
-    completed,
-    user_id
+    task_id: int,
+    title: Optional[str] = None,
+    description: Optional[str] = None,
+    completed: Optional[bool] = None,
+    user_id: Optional[int] = None
 ):
     db = SessionLocal()
 
     try:
-        result = db.execute(
-            text("""
-                UPDATE tasks
-                SET
-                    title = :title,
-                    description = :description,
-                    completed = :completed,
-                    user_id = :user_id
-                WHERE task_id = :task_id
-                RETURNING *
-            """),
-            {
-                "task_id": task_id,
-                "title": title,
-                "description": description,
-                "completed": completed,
-                "user_id": user_id
-            }
+        fields = {}
+        params = {"task_id": task_id}
+
+        if title is not None:
+            fields["title"] = title
+
+        if description is not None:
+            fields["description"] = description
+
+        if completed is not None:
+            fields["completed"] = completed
+
+        if user_id is not None:
+            fields["user_id"] = user_id
+
+        if not fields:
+            return error_response(
+                400,
+                "No data provided to update."
+            )
+
+        set_clause = ", ".join(
+            f"{key} = :{key}" for key in fields.keys()
         )
 
+        params.update(fields)
+
+        query = f"""
+            UPDATE tasks
+            SET {set_clause}
+            WHERE task_id = :task_id
+            RETURNING *
+        """
+
+        result = db.execute(text(query), params)
         row = result.fetchone()
 
         if row is None:
             db.rollback()
-
             return error_response(
                 404,
                 f"Task with task_id {task_id} not found."
@@ -459,20 +504,19 @@ def update_task(
         if constraint == "fk_user_id":
             return error_response(
                 400,
-                "Invalid user_id."
+                "Invalid user_id. User does not exist."
             )
 
         return error_response(
             400,
-            "Database integrity error."
+            "Database integrity error "
         )
 
     except Exception:
         db.rollback()
-
         return error_response(
             500,
-            "Database error."
+            "Database error"
         )
 
     finally:
