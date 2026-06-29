@@ -1,9 +1,6 @@
 from app.database_api import (
     create_user,
-    get_all_users,
-    get_user_by_id,
-    get_user_by_email,
-    get_user_by_password,
+    get_users,
     update_user,
     delete_user
 )
