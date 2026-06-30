@@ -416,6 +416,7 @@ def update_task(task_id: int, body: UpdateTaskRequest, authUserID: int = Depends
         if res['code'] != 200:
             raise HTTPException(status_code=res['code'], detail=res['message'])
         updatedTask = res['message']
+    
     except HTTPException:
         raise
     except Exception as e:
@@ -434,6 +435,8 @@ def get_task_by_id(task_id: int, authUserID: int = Depends(authorize)):
             raise HTTPException(res['code'], res['message'])
 
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception(f"Unexpected error while getting task\n{e}")
         raise HTTPException(status_code=400, detail="bad request")
