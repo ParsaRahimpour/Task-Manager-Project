@@ -56,7 +56,6 @@ class CreateTaskRequest(BaseModel):
     user_id: int
 
 class UpdateTaskRequest(BaseModel):
-    task_id: int
     title: Optional[str] = None
     description: Optional[str] = None
     completed: Optional[bool] = None
@@ -68,9 +67,9 @@ def authorize(password: str = Header(...)):
         res = get_users(password=password)
 
         if res['code'] != 200:
-            raise HTTPException(res['code'], res['message'])
+            raise HTTPException(res['code'], 'password is wrong')
 
-        user = User(**res['message'])
+        user = User(**res['message'][0])
 
         logger.info("User logged in successfully")
         return user.user_id 
@@ -258,7 +257,7 @@ def get_user_by_id_endpoint(user_id: int, authUserID: int = Depends(authorize)):
         if res['code'] != 200:
             raise HTTPException(res['code'], res['message'])
         
-        user = User(**res['message'])
+        user = User(**res['message'][0])
         
         logger.info(f'user {authUserID} retrieved user info with id {user.user_id}')
         return {
@@ -310,11 +309,11 @@ def createTask(body: CreateTaskRequest, authUserID: int = Depends(authorize)):
 
 
 
-@app.put('/tasks/{task_id}')
-def updateTask(body: UpdateTaskRequest, authUserID: int = Depends(authorize)):
+@app.put('/tasks/')
+def updateTask(task_id: int, body: UpdateTaskRequest, authUserID: int = Depends(authorize)):
     
     try:
-        res = update_task(**dict(body))
+        res = update_task(task_id=task_id, **dict(body))
         if res['code'] != 200:
             raise HTTPException(res['code'], res['message'])
         updatedTask = res['message']

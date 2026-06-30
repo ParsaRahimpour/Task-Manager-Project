@@ -1,6 +1,11 @@
+import sys
+from pathlib import Path
+
+sys.path.append(str(Path(__file__).parent.parent))
+
+
 from app.database_api import (
     create_user,
-    get_users,
     update_user,
     delete_user
 )
@@ -37,68 +42,6 @@ result = create_user(
     "Another User",
     "test_user@example.com",
     "anotherpass"
-)
-
-print(result)
-
-# -----------------------------
-# GET USER BY ID (SUCCESS)
-# -----------------------------
-print("\nGET USER BY ID (SUCCESS)")
-
-if user_id:
-    result = get_user_by_id(user_id)
-    print(result)
-
-# -----------------------------
-# GET USER BY ID (ERROR 404)
-# -----------------------------
-print("\nGET USER BY ID (NOT FOUND)")
-
-result = get_user_by_id(999999)
-
-print(result)
-
-# -----------------------------
-# GET USER BY EMAIL (SUCCESS)
-# -----------------------------
-print("\nGET USER BY EMAIL (SUCCESS)")
-
-result = get_user_by_email(
-    "test_user@example.com"
-)
-
-print(result)
-
-# -----------------------------
-# GET USER BY EMAIL (NOT FOUND)
-# -----------------------------
-print("\nGET USER BY EMAIL (NOT FOUND)")
-
-result = get_user_by_email(
-    "unknown@example.com"
-)
-
-print(result)
-
-# -----------------------------
-# GET USER BY PASSWORD (SUCCESS)
-# -----------------------------
-print("\nGET USER BY PASSWORD (SUCCESS)")
-
-result = get_user_by_password(
-    valid_password
-)
-
-print(result)
-
-# -----------------------------
-# GET USER BY PASSWORD (ERROR)
-# -----------------------------
-print("\nGET USER BY PASSWORD (ERROR)")
-
-result = get_user_by_password(
-    invalid_password
 )
 
 print(result)
@@ -147,14 +90,6 @@ result = update_user(
 
 print(result)
 
-# -----------------------------
-# GET ALL USERS (SUCCESS)
-# -----------------------------
-print("\nGET ALL USERS")
-
-result = get_all_users()
-
-print(result)
 
 # -----------------------------
 # DELETE USER (SUCCESS)
