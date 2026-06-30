@@ -376,6 +376,22 @@ def get_tasks(
     try:
         conditions = []
         params = {}
+        
+        if task_id is not None:
+            task = db.execute(
+                text("""
+                    SELECT 1
+                    FROM tasks
+                    WHERE task_id = :task_id
+                """),
+                {"task_id": task_id}
+            ).fetchone()
+
+            if task is None:
+                return error_response(
+                    404,
+                    f"Task with task_id {task_id} not found."
+                )
 
         if user_id is not None:
             user = db.execute(
