@@ -1,13 +1,18 @@
+import sys
+from pathlib import Path
+
+sys.path.append(str(Path(__file__).parent.parent))
+
+
 from app.database_api import (
     create_task,
-    get_tasks,
     update_task,
     delete_task
 )
 
 print("\n========== TASKS TEST ==========")
 
-user_id = 3
+user_id = 2
 invalid_user_id = 99999
 invalid_task_id = 99999
 
