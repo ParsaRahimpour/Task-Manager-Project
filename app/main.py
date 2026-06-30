@@ -71,30 +71,47 @@ def authorize(password: str = Header(...)):
 
         user = User(**res['message'][0])
 
-        logger.info("User logged in successfully")
-        return user.user_id 
+        logger.info(f"User {user.user_id} logged in successfully")
+        return user.user_id
 
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.exception(e)
-        raise e
+        logger.exception(f"Unexpected error during authorization {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error"
+        )
 
 
 @app.get("/health")
 async def get_health():
     try:
-        return {"status" : "ok" }
+        return {
+            "status": "ok"
+        }
+
     except Exception as e:
-            logger.exception(e)
-    raise HTTPException(status_code=500, detail="Internal server error")
+        logger.exception(f"Unexpected error during health check {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error"
+        )
 
 
 @app.get("/")
 async def root():
     try:
-        return {"message": "Task Management API"}
+        return {
+            "message": "Task Management API"
+        }
+
     except Exception as e:
-        logger.exception(e)
-    raise HTTPException(status_code=500, detail="Internal server error")
+        logger.exception(f"Unexpected error in root endpoint, {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error"
+        )
 
 
 @app.get("/tasks/completed/")
@@ -107,33 +124,64 @@ async def get_completed_task(user_id: int | None = None, authUserID: int = Depen
         if result["code"] != 200:
             raise HTTPException(status_code=result["code"], detail=result["message"])
         
+        if result["message"] is None or len(result["message"]) == 0:
+            logger.info(f"No completed tasks found")
+            return {
+                "message": "Not found any task that you want"
+            }
+
         logger.info(f"user {authUserID} successfully got completed tasks")
-        return {"success" , result}
+        return {
+            "success": True,
+            "tasks": result["message"]
+        }
     
-    except Exception as e:
-        logger.exception(e)
-        raise HTTPException(status_code=500, detail="Internal server error")
+    except HTTPException:
+        raise
+    except Exception  as e:
+        logger.exception(f"Unexpected error while retrieving completed tasks for user {authUserID} \n {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error"
+        )
+        
+
+        
+
+        
+
+
+        
+
+    
 
         
 @app.get('/tasks/')
 def getTasks(user_id: int | None = None, title: str | None = None, authUserID: int = Depends(authorize)):
     
     try:
-
         chosenTasks = []
 
         if title == None:
             res = get_tasks(user_id= user_id, title= title)
+        
 
             if res['code'] != 200:
-                raise HTTPException(res['code'], res['message'])
-            
+                raise HTTPException(
+                    status_code=res['code'],
+                    detail=res['message']
+                )
+
             chosenTasks = res['message']
 
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.exception(e)
-        raise e
-
+        logger.exception(f"Unexpected error while retrieving tasks for user {authUserID}\n{e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error"
+        )
 
     logger.info(f"Tasks retrieved successfully for user {authUserID}")
 
@@ -153,25 +201,33 @@ def deleteTask(task_id: int, authUserID: int = Depends(authorize)):
         if res['code'] != 200:
             raise HTTPException(res['code'], res['message'])
 
+
+        
         res = delete_task(task_id)
 
         if res['code'] != 200:
-            raise HTTPException(res['code'], res['message'])
-        
+            raise HTTPException(
+                status_code=res['code'],
+                detail=res['message']
+            )
+
         deletedTask = res['message']
 
-
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.exception(e)
-        raise e
-    
+        logger.exception(f"Unexpected error while deleting task {task_id}\n{e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error"
+        )
 
     logger.info(f"Task with ID {task_id} deleted successfully by user {authUserID}")
     
+
     return {
         'message': deletedTask
     }
-
 
 
 @app.get("/users/")
@@ -180,22 +236,31 @@ async def get_all_users(authUserID: int = Depends(authorize)):
     try:
 
         result = get_users()
+
         if result["code"] != 200:
-            logger.error(f"get_all_users failed: {result['message']}")
-            raise HTTPException(status_code=result["code"], detail=result["message"])
+            raise HTTPException(
+                status_code=result["code"],
+                detail=result["message"]
+            )
 
         users = result["message"] if result["message"] else []
         count = len(users)
+
         logger.info(f"User {authUserID} retrieved all users. Count: {count}")
-        return {"users": users, "count": count}
+
+        return {
+            "users": users,
+            "count": count
+        }
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception(f"Unexpected error in get_all_users: {e}")
-        raise e
-
-
+        logger.exception(f"Unexpected error while retrieving all users\n{e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error"
+        )
 
 @app.delete("/users/")
 async def delete_user(user_id: int, authUserID: int = Depends(authorize)):
@@ -206,35 +271,56 @@ async def delete_user(user_id: int, authUserID: int = Depends(authorize)):
             logger.warning("Forbidden delete attempt")
             raise HTTPException(status_code=403, detail="Forbidden: super user can not be deleted or user delete himself")
 
+
         if user_id < 2:
             logger.warning(f"Invalid user_id {user_id} in delete attempt")
-            raise HTTPException(status_code=400, detail="Invalid user ID")
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid user ID"
+            )
 
         result = db_delete_user(user_id)
+
         if result["code"] != 200:
-            logger.error(f"Delete user failed for id {user_id}: {result['message']}")
-            raise HTTPException(status_code=result["code"], detail=result["message"])
+            raise HTTPException(
+                status_code=result["code"],
+                detail=result["message"]
+            )
 
         logger.info(f"User {user_id} deleted successfully by user {authUserID}")
-        return {"message": "User deleted successfully", "user": result["message"]}
+
+        return {
+            "message": "User deleted successfully",
+            "user": result["message"]
+        }
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception(f"Unexpected error in delete_user: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
-
+        logger.exception(f"Unexpected error while deleting user {user_id}\n{e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error"
+        )
 
 
 @app.post('/users', status_code=201)
 def create_user_endpoint(user: UserCreate, authUserID: int = Depends(authorize)):
     
     try:
+
         
-        res = create_user(name=user.name, email=user.email, password=user.password)
+        res = create_user(
+            name=user.name,
+            email=user.email,
+            password=user.password
+        )
         
         if res['code'] != 200:
-            raise HTTPException(res['code'], res['message'])
+            raise HTTPException(
+                status_code=res['code'],
+                detail=res['message']
+            )
         
         created_user = User(**res['message'])
         
@@ -243,8 +329,14 @@ def create_user_endpoint(user: UserCreate, authUserID: int = Depends(authorize))
             'message': created_user
         }
     
+    except HTTPException:
+        raise
     except Exception as e:
-        raise e
+        logger.exception(f"Unexpected error while creating user\n{e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error"
+        )
 
 
 @app.get('/users/{user_id}')
@@ -254,18 +346,26 @@ def get_user_by_id_endpoint(user_id: int, authUserID: int = Depends(authorize)):
 
         res = get_users(user_id)
         
+
         if res['code'] != 200:
             raise HTTPException(res['code'], res['message'])
         
         user = User(**res['message'][0])
         
         logger.info(f'user {authUserID} retrieved user info with id {user.user_id}')
+
         return {
             'message': user
         }
-    
+
+    except HTTPException:
+        raise
     except Exception as e:
-        raise e
+        logger.exception(f"Unexpected error while retrieving user {user_id}\n{e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error"
+        )
 
 
 @app.put('/users/{user_id}')
@@ -279,32 +379,46 @@ def update_user_endpoint(
 
         res = update_user(user_id, **dict(update_data))
         
+
+
         if res['code'] != 200:
-            raise HTTPException(res['code'], res['message'])
-        
+            raise HTTPException(
+                status_code=res['code'],
+                detail=res['message']
+            )
+
         updated_user = User(**res['message'])
-        
+
         return {
             'message': updated_user
         }
-    
+
+    except HTTPException:
+        raise
     except Exception as e:
-        raise e
+        logger.exception(f"Unexpected error while updating user {user_id}\n{e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error"
+        )
 
 
 @app.post('/tasks/')
 def createTask(body: CreateTaskRequest, authUserID: int = Depends(authorize)):
 
+
     try:
         res = create_task(**body)
         if res['code'] != 200:
-            raise HTTPException(res['code'], res['message'])
+            raise HTTPException(status_code=res['code'], detail=res['message'])
         createdTask = res['message']
 
-    except HTTPException as e:
-        raise e
-    except Exception:
-        raise HTTPException(500, 'internal server error')
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Unexpected error while creating task\n{e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+    
     return {'message': createdTask}
 
 
@@ -315,12 +429,14 @@ def updateTask(task_id: int, body: UpdateTaskRequest, authUserID: int = Depends(
     try:
         res = update_task(task_id=task_id, **dict(body))
         if res['code'] != 200:
-            raise HTTPException(res['code'], res['message'])
+            raise HTTPException(status_code=res['code'], detail=res['message'])
         updatedTask = res['message']
-    except HTTPException as e:
-        raise e
-    except Exception:
-        raise HTTPException(500, 'internal server error')
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Unexpected error while updating task\n{e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
     return {'message': updatedTask}
 
 
@@ -331,10 +447,9 @@ def getTaskById(task_id: int, authUserID: int = Depends(authorize)):
         res = get_tasks(task_id)
         if res['code'] != 200:
             raise HTTPException(res['code'], res['message'])
-        
-    except HTTPException as e:
-        raise e
-    except Exception:
-        raise HTTPException(500, 'internal server error')
-    
+
+
+    except Exception as e:
+        logger.exception(f"Unexpected error while getting task\n{e}")
+        raise HTTPException(status_code=400, detail="bad request")
     return {'message': res['message']}
