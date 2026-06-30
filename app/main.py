@@ -1,5 +1,3 @@
-# In the name of Allah
-
 from fastapi import FastAPI, HTTPException, Header, Depends
 from pydantic import BaseModel
 from .database_api import delete_task as delete_task_db, get_users as get_users_db, get_tasks as get_tasks_db
@@ -186,7 +184,7 @@ def delete_task(task_id: int, authUserID: int = Depends(authorize)):
 
     try:
 
-        res = get_tasks_db(task_id= task_id)
+        res = get_tasks_db(task_id = task_id)
         
         if res['code'] != 200:
             raise HTTPException(res['code'], res['message'])

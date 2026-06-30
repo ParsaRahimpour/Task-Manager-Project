@@ -361,6 +361,9 @@ def create_task(title, description, user_id):
         db.close()
 
 
+from typing import Optional
+from sqlalchemy import text
+
 def get_tasks(
     task_id: Optional[int] = None,
     user_id: Optional[int] = None,
@@ -374,6 +377,21 @@ def get_tasks(
         conditions = []
         params = {}
 
+        if user_id is not None:
+            user = db.execute(
+                text("""
+                    SELECT 1
+                    FROM users
+                    WHERE user_id = :user_id
+                """),
+                {"user_id": user_id}
+            ).fetchone()
+
+            if user is None:
+                return error_response(
+                    404,
+                    f"User with user_id {user_id} not found."
+                )
 
         if task_id is not None:
             conditions.append("task_id = :task_id")
@@ -395,34 +413,50 @@ def get_tasks(
             conditions.append("completed = :completed")
             params["completed"] = completed
 
-
         query = "SELECT * FROM tasks"
+
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
 
         result = db.execute(text(query), params)
         rows = result.fetchall()
 
-        tasks = [row_to_dict(row, TASK_COLUMNS) for row in rows]
+        tasks = [
+            row_to_dict(row, TASK_COLUMNS)
+            for row in rows
+        ]
 
         if not tasks:
+
             if not conditions:
                 return error_response(
                     404,
                     "No tasks found."
                 )
-            else:
+
+            if completed is True and user_id is not None:
                 return error_response(
                     404,
-                    "No tasks match the provided filters."
+                    "This user has no completed tasks."
                 )
+
+            if completed is True and user_id is None:
+                return error_response(
+                    404,
+                    "No completed tasks found."
+                )
+
+            return error_response(
+                404,
+                "No tasks match the provided filters."
+            )
 
         return success_response(tasks)
 
     except Exception:
         return error_response(
             500,
-            "Database error"
+            "Database error."
         )
 
     finally:
