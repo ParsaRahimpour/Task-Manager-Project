@@ -61,11 +61,13 @@ class UpdateTaskRequest(BaseModel):
 
 
 def authorize(password: str = Header(...)):
+
     try:
+
         res = get_users_db(password=password)
 
         if res['code'] != 200:
-            raise HTTPException(res['code'], 'password is wrong')
+            raise HTTPException(401, 'password is invalid or not exist')
 
         user = User(**res['message'][0])
 
@@ -122,12 +124,6 @@ async def get_completed_task(user_id: int | None = None, authUserID: int = Depen
         if result["code"] != 200:
             raise HTTPException(status_code=result["code"], detail=result["message"])
         
-        if result["message"] is None or len(result["message"]) == 0:
-            logger.info(f"No completed tasks found")
-            return {
-                "message": "Not found any task that you want"
-            }
-
         logger.info(f"user {authUserID} successfully got completed tasks")
         return {
             "success": True,
@@ -150,17 +146,15 @@ def get_tasks(user_id: int | None = None, title: str | None = None, authUserID: 
     try:
         chosenTasks = []
 
-        if title == None:
-            res = get_tasks_db(user_id= user_id, title= title)
-        
+        res = get_tasks_db(user_id= user_id, title= title)
 
-            if res['code'] != 200:
-                raise HTTPException(
-                    status_code=res['code'],
-                    detail=res['message']
-                )
+        if res['code'] != 200:
+            raise HTTPException(
+                status_code=res['code'],
+                detail=res['message']
+            )
 
-            chosenTasks = res['message']
+        chosenTasks = res['message']
 
     except HTTPException:
         raise
@@ -254,7 +248,7 @@ async def delete_user(user_id: int, authUserID: int = Depends(authorize)):
 
     try:
         
-        if user_id == 1 and user_id != authUserID:
+        if user_id == 1 or user_id == authUserID:
             logger.warning("Forbidden delete attempt")
             raise HTTPException(status_code=403, detail="Forbidden: super user can not be deleted or user delete himself")
 
